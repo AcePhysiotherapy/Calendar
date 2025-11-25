@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Book Your Appointment</title>
+    
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+
+    <style>
+        :root { --primary: #2c3e50; --available: #27ae60; --booked: #e74c3c; }
+        body { font-family: -apple-system, sans-serif; background: #f4f6f6; margin: 0; padding: 10px; }
+
+        h2 { text-align: center; color: #333; margin-bottom: 5px; }
+        p.instruct { text-align: center; color: #666; font-size: 0.9rem; margin-top: 0; }
+
+        .top-bar { display: flex; justify-content: center; gap: 10px; margin-bottom: 15px; }
+        button { padding: 10px 20px; border: none; background: var(--primary); color: white; border-radius: 5px; font-size: 1rem; cursor: pointer; }
+        
+        .calendar-wrapper { 
+            display: grid; 
+            grid-template-columns: 70px repeat(6, 1fr); 
+            background: white; border: 1px solid #ccc; border-radius: 8px; 
+            min-width: 800px; 
+        }
+        
+        .scroll-container { overflow-x: auto; padding-bottom: 20px; }
+
+        .header-cell { background: var(--primary); color: white; padding: 10px 2px; text-align: center; font-weight: bold; font-size: 0.9rem; }
+        .time-cell { background: #eee; font-weight: bold; display: flex; justify-content: center; align-items: center; border-bottom: 1px solid #ddd; border-right: 1px solid #ddd; }
+        
+        /* SLOT STYLES */
+        .slot { 
+            height: 60px; 
+            border-bottom: 1px solid #eee; 
+            border-right: 1px solid #eee; 
+            display: flex; 
+            justify-content: center; 
+            align-items: center; 
+            font-size: 0.8rem; 
+            cursor: pointer;
+            transition: 0.2s;
+        }
+
+        /* Empty Slot (Green) */
+        .slot.available { background-color: #eafaf1; color: var(--available); font-weight: bold; }
+        .slot.available:hover { background-color: #d5f5e3; }
+        
+        /* Booked Slot (Red/Grey) */
+        .slot.taken { background-color: #f2f2f2; color: #999; cursor: not-allowed; }
+
+        .is-today { border-bottom: 4px solid #e67e22; }
+    </style>
+</head>
+<body>
+
+    <h2>Physiotherapy Booking</h2>
+    <p class="instruct">Tap a green slot to book.</p>
+
+    <div class="top-bar">
+        <button onclick="changeWeek(-7)">&#8592; Prev</button>
+        <button style="background:#e67e22" onclick="goToToday()">Today</button>
+        <button onclick="changeWeek(7)">Next &#8594;</button>
+    </div>
+
+    <div class="scroll-container">
+        <div class="calendar-wrapper" id="calendarGrid"></div>
+    </div>
+
+<script>
+    // --- 1. CONFIGURATION (SAME KEYS AS ADMIN) ---
+    const firebaseConfig = {
+      apiKey: "AIzaSyDXubITvhhUgZF83R9xtSvazQD6wHUfOQs",
+      authDomain: "physiocalender-9cd13.firebaseapp.com",
+      databaseURL: "https://physiocalender-9cd13-default-rtdb.asia-southeast1.firebasedatabase.app",
+      projectId: "physiocalender-9cd13",
+      storageBucket: "physiocalender-9cd13.firebasestorage.app",
+      messagingSenderId: "69558259806",
+      appId: "1:69558259806:web:f608d8e3b80afe30b8a4cf",
+      measurementId: "G-352RB24E58"
+    };
+
+    if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
+    const db = firebase.database();
+    
+    // --- 2. LOGIC ---
+    const startHour = 8;
+    const endHour = 20; // Slightly shorter hours for public view?
+    const days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+    
+    let appointments = {}; 
+    let currentMonday = getMonday(new Date());
+    let dbRef = db.ref('appointments'); 
+
+    const grid = document.getElementById('calendarGrid');
+
+    // Real-time Sync
+    dbRef.on('value', (snapshot) => {
+        appointments = snapshot.val() || {}; 
+        initCalendar(); 
+    });
+
+    function getMonday(d) {
+        d = new Date(d);
+        const day = d.getDay();
+        const diff = d.getDate() - day + (day === 0 ? -6 : 1);
+        return new Date(d.setDate(diff));
+    }
+
+    function formatDateKey(dateObj) {
+        return dateObj.toISOString().split('T')[0];
+    }
+    
+    function goToToday() {
+        currentMonday = getMonday(new Date());
+        initCalendar();
+    }
+
+    function changeWeek(d) {
+        currentMonday.setDate(currentMonday.getDate() + d);
+        initCalendar();
+    }
+
+    function initCalendar() {
+        grid.innerHTML = "";
+        
+        // Headers
+        const timeHeader = document.createElement('div');
+        timeHeader.className = 'header-cell';
+        timeHeader.innerText = "Time";
+        grid.appendChild(timeHeader);
+
+        const realTodayKey = formatDateKey(new Date());
+
+        for (let i = 0; i < 6; i++) {
+            let d = new Date(currentMonday);
+            d.setDate(currentMonday.getDate() + i);
+            const dateKey = formatDateKey(d);
+            
+            const cell = document.createElement('div');
+            cell.className = 'header-cell';
+            if (dateKey === realTodayKey) cell.classList.add('is-today');
+            
+            const dayName = d.toLocaleDateString('en-US', { weekday: 'short' });
+            const dateNum = d.getDate() + "/" + (d.getMonth() + 1);
+            cell.innerText = `${dayName} ${dateNum}`;
+            grid.appendChild(cell);
+        }
+
+        // Slots
+        for (let hour = startHour; hour <= endHour; hour++) {
+            const timeLabel = document.createElement('div');
+            timeLabel.className = 'time-cell';
+            timeLabel.innerText = hour > 12 ? (hour - 12) + " PM" : hour + " AM";
+            grid.appendChild(timeLabel);
+
+            for (let i = 0; i < 6; i++) {
+                let d = new Date(currentMonday);
+                d.setDate(currentMonday.getDate() + i);
+                const dateKey = formatDateKey(d);
+                const uniqueId = `${dateKey}_${hour}`;
+                
+                const slot = document.createElement('div');
+                
+                // CHECK IF SLOT IS TAKEN
+                if (appointments[uniqueId]) {
+                    // It is taken -> Show "Booked" (No private info)
+                    slot.className = 'slot taken';
+                    slot.innerText = "⛔ Booked";
+                    slot.onclick = () => alert("This slot is already taken.");
+                } else {
+                    // It is empty -> Allow Booking
+                    slot.className = 'slot available';
+                    slot.innerText = "✅ Book";
+                    slot.onclick = () => bookSlot(uniqueId, hour);
+                }
+                
+                grid.appendChild(slot);
+            }
+        }
+    }
+
+    function bookSlot(slotId, hour) {
+        const name = prompt(`Booking for ${hour}:00.\nPlease enter your Name:`);
+        if (!name) return;
+        
+        const phone = prompt("Please enter your Phone Number:");
+        if (!phone) return;
+
+        const newAppt = {
+            id: Date.now().toString(),
+            time: hour + ":00", // Defaulting to hour for simplicity
+            name: name,
+            phone: phone
+        };
+
+        // Save to Firebase
+        dbRef.child(slotId).child(newAppt.id).set(newAppt)
+            .then(() => alert("Booking Confirmed! See you then."))
+            .catch(e => alert("Error booking: " + e.message));
+    }
+
+</script>
+</body>
+</html>
