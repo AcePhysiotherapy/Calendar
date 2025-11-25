@@ -3,73 +3,107 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Book Your Appointment</title>
+    <title>Physio Clinic Booking</title>
     
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
 
     <style>
-        :root { --primary: #2c3e50; --available: #27ae60; --booked: #e74c3c; }
-        body { font-family: -apple-system, sans-serif; background: #f4f6f6; margin: 0; padding: 10px; }
+        :root { --primary: #2c3e50; --available: #27ae60; --booked: #95a5a6; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #f4f6f6; margin: 0; padding: 10px; }
 
         h2 { text-align: center; color: #333; margin-bottom: 5px; }
         p.instruct { text-align: center; color: #666; font-size: 0.9rem; margin-top: 0; }
 
         .top-bar { display: flex; justify-content: center; gap: 10px; margin-bottom: 15px; }
-        button { padding: 10px 20px; border: none; background: var(--primary); color: white; border-radius: 5px; font-size: 1rem; cursor: pointer; }
+        button.nav-btn { padding: 8px 16px; border: none; background: var(--primary); color: white; border-radius: 5px; font-size: 0.9rem; cursor: pointer; }
         
+        /* CALENDAR GRID */
+        .scroll-container { overflow-x: auto; padding-bottom: 20px; }
         .calendar-wrapper { 
             display: grid; 
             grid-template-columns: 70px repeat(6, 1fr); 
             background: white; border: 1px solid #ccc; border-radius: 8px; 
             min-width: 800px; 
         }
-        
-        .scroll-container { overflow-x: auto; padding-bottom: 20px; }
 
         .header-cell { background: var(--primary); color: white; padding: 10px 2px; text-align: center; font-weight: bold; font-size: 0.9rem; }
-        .time-cell { background: #eee; font-weight: bold; display: flex; justify-content: center; align-items: center; border-bottom: 1px solid #ddd; border-right: 1px solid #ddd; }
-        
+        .time-cell { background: #eee; font-weight: bold; display: flex; justify-content: center; align-items: center; border-bottom: 1px solid #ddd; border-right: 1px solid #ddd; font-size: 0.8rem; }
+        .is-today { border-bottom: 4px solid #e67e22; }
+
         /* SLOT STYLES */
         .slot { 
-            height: 60px; 
-            border-bottom: 1px solid #eee; 
-            border-right: 1px solid #eee; 
-            display: flex; 
-            justify-content: center; 
-            align-items: center; 
-            font-size: 0.8rem; 
-            cursor: pointer;
-            transition: 0.2s;
+            height: 55px; 
+            border-bottom: 1px solid #eee; border-right: 1px solid #eee; 
+            display: flex; justify-content: center; align-items: center; 
+            font-size: 0.85rem; cursor: pointer; transition: 0.2s;
         }
-
-        /* Empty Slot (Green) */
         .slot.available { background-color: #eafaf1; color: var(--available); font-weight: bold; }
         .slot.available:hover { background-color: #d5f5e3; }
-        
-        /* Booked Slot (Red/Grey) */
-        .slot.taken { background-color: #f2f2f2; color: #999; cursor: not-allowed; }
+        .slot.taken { background-color: #f2f2f2; color: #aaa; cursor: not-allowed; }
 
-        .is-today { border-bottom: 4px solid #e67e22; }
+        /* --- PROFESSIONAL CUSTOM MODAL (The Fix) --- */
+        .modal-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.5); display: none;
+            justify-content: center; align-items: center; z-index: 1000;
+        }
+        
+        .modal-box {
+            background: white; padding: 25px; border-radius: 12px;
+            width: 90%; max-width: 350px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+            text-align: center;
+        }
+
+        .modal-title { font-size: 1.2rem; font-weight: bold; color: var(--primary); margin-bottom: 15px; }
+        .modal-subtitle { font-size: 0.9rem; color: #666; margin-bottom: 20px; }
+
+        input.modal-input {
+            width: 100%; padding: 12px; margin-bottom: 10px;
+            border: 1px solid #ddd; border-radius: 6px; font-size: 16px;
+            box-sizing: border-box;
+        }
+
+        .modal-actions { display: flex; gap: 10px; margin-top: 10px; }
+        
+        button.btn-confirm { flex: 1; padding: 12px; background: var(--available); color: white; border: none; border-radius: 6px; font-weight: bold; font-size: 1rem; cursor: pointer; }
+        button.btn-cancel { flex: 1; padding: 12px; background: #95a5a6; color: white; border: none; border-radius: 6px; font-weight: bold; font-size: 1rem; cursor: pointer; }
+
     </style>
 </head>
 <body>
 
     <h2>Physiotherapy Booking</h2>
-    <p class="instruct">Tap a green slot to book.</p>
+    <p class="instruct">Tap a green slot to book an appointment.</p>
 
     <div class="top-bar">
-        <button onclick="changeWeek(-7)">&#8592; Prev</button>
-        <button style="background:#e67e22" onclick="goToToday()">Today</button>
-        <button onclick="changeWeek(7)">Next &#8594;</button>
+        <button class="nav-btn" onclick="changeWeek(-7)">&#8592; Prev</button>
+        <button class="nav-btn" style="background:#e67e22" onclick="goToToday()">Today</button>
+        <button class="nav-btn" onclick="changeWeek(7)">Next &#8594;</button>
     </div>
 
     <div class="scroll-container">
         <div class="calendar-wrapper" id="calendarGrid"></div>
     </div>
 
+    <div class="modal-overlay" id="bookingModal">
+        <div class="modal-box">
+            <div class="modal-title">Confirm Booking</div>
+            <div class="modal-subtitle" id="modalTimeText">Time: ...</div>
+            
+            <input type="text" id="pName" class="modal-input" placeholder="Your Full Name">
+            <input type="tel" id="pPhone" class="modal-input" placeholder="Phone Number">
+            
+            <div class="modal-actions">
+                <button class="btn-cancel" onclick="closeModal()">Cancel</button>
+                <button class="btn-confirm" onclick="confirmBooking()">Confirm</button>
+            </div>
+        </div>
+    </div>
+
 <script>
-    // --- 1. CONFIGURATION (SAME KEYS AS ADMIN) ---
+    // --- 1. CONFIGURATION ---
     const firebaseConfig = {
       apiKey: "AIzaSyDXubITvhhUgZF83R9xtSvazQD6wHUfOQs",
       authDomain: "physiocalender-9cd13.firebaseapp.com",
@@ -86,16 +120,19 @@
     
     // --- 2. LOGIC ---
     const startHour = 8;
-    const endHour = 20; // Slightly shorter hours for public view?
+    const endHour = 20; 
     const days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
     
     let appointments = {}; 
     let currentMonday = getMonday(new Date());
     let dbRef = db.ref('appointments'); 
 
+    // MODAL VARIABLES
+    let selectedSlotId = null;
+    let selectedTime = null;
+
     const grid = document.getElementById('calendarGrid');
 
-    // Real-time Sync
     dbRef.on('value', (snapshot) => {
         appointments = snapshot.val() || {}; 
         initCalendar(); 
@@ -163,17 +200,13 @@
                 
                 const slot = document.createElement('div');
                 
-                // CHECK IF SLOT IS TAKEN
                 if (appointments[uniqueId]) {
-                    // It is taken -> Show "Booked" (No private info)
                     slot.className = 'slot taken';
-                    slot.innerText = "⛔ Booked";
-                    slot.onclick = () => alert("This slot is already taken.");
+                    slot.innerText = "Booked";
                 } else {
-                    // It is empty -> Allow Booking
                     slot.className = 'slot available';
-                    slot.innerText = "✅ Book";
-                    slot.onclick = () => bookSlot(uniqueId, hour);
+                    slot.innerText = "Book";
+                    slot.onclick = () => openModal(uniqueId, hour, d);
                 }
                 
                 grid.appendChild(slot);
@@ -181,24 +214,60 @@
         }
     }
 
-    function bookSlot(slotId, hour) {
-        const name = prompt(`Booking for ${hour}:00.\nPlease enter your Name:`);
-        if (!name) return;
+    // --- MODAL FUNCTIONS ---
+    function openModal(slotId, hour, dateObj) {
+        selectedSlotId = slotId;
         
-        const phone = prompt("Please enter your Phone Number:");
-        if (!phone) return;
+        // Format readable time string
+        const dayName = dateObj.toLocaleDateString('en-US', { weekday: 'long' });
+        const timeStr = hour > 12 ? (hour - 12) + ":00 PM" : hour + ":00 AM";
+        selectedTime = timeStr; // Save for saving to DB
+
+        document.getElementById('modalTimeText').innerText = `${dayName} at ${timeStr}`;
+        document.getElementById('pName').value = ""; // Clear inputs
+        document.getElementById('pPhone').value = "";
+        
+        document.getElementById('bookingModal').style.display = 'flex';
+    }
+
+    function closeModal() {
+        document.getElementById('bookingModal').style.display = 'none';
+    }
+
+    function confirmBooking() {
+        const name = document.getElementById('pName').value;
+        const phone = document.getElementById('pPhone').value;
+
+        if (!name || !phone) {
+            alert("Please fill in both Name and Phone.");
+            return;
+        }
+
+        // Loading state
+        const btn = document.querySelector('.btn-confirm');
+        const originalText = btn.innerText;
+        btn.innerText = "Booking...";
+        btn.disabled = true;
 
         const newAppt = {
             id: Date.now().toString(),
-            time: hour + ":00", // Defaulting to hour for simplicity
+            time: selectedTime,
             name: name,
             phone: phone
         };
 
-        // Save to Firebase
-        dbRef.child(slotId).child(newAppt.id).set(newAppt)
-            .then(() => alert("Booking Confirmed! See you then."))
-            .catch(e => alert("Error booking: " + e.message));
+        dbRef.child(selectedSlotId).child(newAppt.id).set(newAppt)
+            .then(() => {
+                closeModal();
+                btn.innerText = originalText;
+                btn.disabled = false;
+                alert("✅ Booking Confirmed!");
+            })
+            .catch(e => {
+                alert("Error: " + e.message);
+                btn.innerText = originalText;
+                btn.disabled = false;
+            });
     }
 
 </script>
